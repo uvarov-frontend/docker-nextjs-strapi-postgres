@@ -1,0 +1,83 @@
+services:
+
+  nextjs:
+    container_name: ${NODE_ENV}_nextjs
+    build:
+      context: ./nextjs
+      dockerfile: ../docker/${NODE_ENV}/nextjs/Dockerfile
+    restart: unless-stopped
+    environment:
+      API_URL: ${API_URL}
+      API_TOKEN: ${API_TOKEN}
+      NEXT_TELEMETRY_DISABLED: 1
+    depends_on:
+      - strapi
+    ports:
+      - 3000:3000
+    volumes:
+      - ./nextjs:/app
+      - /app/node_modules
+      - /app/.next
+
+  strapi:
+    container_name: ${NODE_ENV}_strapi
+    build:
+      context: ./strapi
+      dockerfile: ../docker/${NODE_ENV}/strapi/Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_CLIENT: postgres
+      DATABASE_HOST: postgres
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_PORT: 5432
+      DATABASE_SSL: false
+      APP_KEYS: ${APP_KEYS}
+      API_TOKEN_SALT: ${API_TOKEN_SALT}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      TRANSFER_TOKEN_SALT: ${TRANSFER_TOKEN_SALT}
+      JWT_SECRET: ${JWT_SECRET}
+      STRAPI_TELEMETRY_DISABLED: true
+      HOST: 0.0.0.0
+      PORT: 1337
+    depends_on:
+      - postgres
+    ports:
+      - 1337:1337
+    volumes:
+      - ./strapi/config:/app/config
+      - ./strapi/src:/app/src
+      - ./strapi/public/uploads:/app/public/uploads
+      - /app/.strapi
+
+  postgres:
+    container_name: ${NODE_ENV}_postgres
+    image: postgres:16.2-alpine
+    restart: unless-stopped
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  nginx:
+    container_name: ${NODE_ENV}_nginx
+    image: nginx
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./docker/${NODE_ENV}/nginx:/etc/nginx/conf.d
+
+
+networks:
+  ${NETWORK_NAME}:
+    driver: bridge
+
+volumes:
+  postgres:
